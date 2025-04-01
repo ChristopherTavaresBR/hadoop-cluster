@@ -1,0 +1,47 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: datanode
+spec:
+  serviceName: "datanode"
+  replicas: 2
+  selector:
+    matchLabels:
+      app: datanode
+  template:
+    metadata:
+      labels:
+        app: datanode
+    spec:
+      containers:
+      - name: datanode
+        image: apache/hadoop:latest
+        command: ["hdfs", "datanode"]
+        env:
+        - name: HADOOP_CONF_DIR
+          value: /etc/hadoop
+        ports:
+        - containerPort: 9864
+        volumeMounts:
+        - name: config
+          mountPath: /etc/hadoop
+        - name: data
+          mountPath: /mnt/hadoop-data
+      volumes:
+      - name: config
+        configMap:
+          name: hadoop-config
+      - name: data
+        persistentVolumeClaim:
+          claimName: hadoop-pvc
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: datanode
+spec:
+  ports:
+  - port: 9864
+    targetPort: 9864
+  selector:
+    app: datanode

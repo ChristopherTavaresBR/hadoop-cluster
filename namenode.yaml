@@ -1,0 +1,50 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: namenode
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: namenode
+  template:
+    metadata:
+      labels:
+        app: namenode
+    spec:
+      containers:
+      - name: namenode
+        image: bde2020/hadoop-namenode
+        command: ["hdfs", "namenode"]
+        env:
+        - name: HADOOP_CONF_DIR
+          value: /etc/hadoop
+        ports:
+        - containerPort: 9870
+        volumeMounts:
+        - name: config
+          mountPath: /etc/hadoop
+        - name: data
+          mountPath: /mnt/hadoop-data
+      volumes:
+      - name: config
+        configMap:
+          name: hadoop-config
+      - name: data
+        persistentVolumeClaim:
+          claimName: hadoop-pvc
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: namenode
+spec:
+  ports:
+  - name: rpc
+    port: 9000
+    targetPort: 9000
+  - name: web
+    port: 9870
+    targetPort: 9870
+  selector:
+    app: namenode
