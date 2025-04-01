@@ -12,15 +12,60 @@ spec:
       labels:
         app: namenode
     spec:
-      containers:
-      - name: namenode
-        image: bde2020/hadoop-namenode
-        command: ["hdfs", "namenode"]
+      initContainers:
+      - name: init-hdfs
+        image: bde2020/hadoop-namenode:2.0.0-hadoop3.2.1-java8
+        command:
+        - "/bin/bash"
+        - "-c"
+        - |
+          mkdir -p /mnt/hadoop-data/namenode
+          chmod 777 /mnt/hadoop-data/namenode
+          if [ ! -f /mnt/hadoop-data/namenode/formatted ]; then
+            echo "Formatting namenode directory"
+            hdfs namenode -format -force
+            touch /mnt/hadoop-data/namenode/formatted
+          fi
         env:
         - name: HADOOP_CONF_DIR
           value: /etc/hadoop
+        - name: CORE_CONF_fs_defaultFS
+          value: hdfs://namenode:9000
+        - name: HDFS_CONF_dfs_replication
+          value: "2"
+        volumeMounts:
+        - name: config
+          mountPath: /etc/hadoop
+        - name: data
+          mountPath: /mnt/hadoop-data
+      containers:
+      - name: namenode
+        image: bde2020/hadoop-namenode:2.0.0-hadoop3.2.1-java8
+        command:
+        - "/entrypoint.sh"  # Use o entrypoint padrão da imagem
+        env:
+        - name: ENSURE_NAMENODE_DIR
+          value: "/mnt/hadoop-data/namenode"
+        - name: HADOOP_CONF_DIR
+          value: /etc/hadoop
+        - name: CORE_CONF_fs_defaultFS
+          value: hdfs://namenode:9000
+        - name: HDFS_CONF_dfs_replication
+          value: "2"
+        - name: HDFS_CONF_dfs_namenode_name_dir
+          value: /mnt/hadoop-data/namenode
         ports:
+        - containerPort: 9000
+          name: rpc
         - containerPort: 9870
+          name: web
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "250m"
+          limits:
+            memory: "1Gi"
+            cpu: "500m"
         volumeMounts:
         - name: config
           mountPath: /etc/hadoop
@@ -33,18 +78,3 @@ spec:
       - name: data
         persistentVolumeClaim:
           claimName: hadoop-pvc
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: namenode
-spec:
-  ports:
-  - name: rpc
-    port: 9000
-    targetPort: 9000
-  - name: web
-    port: 9870
-    targetPort: 9870
-  selector:
-    app: namenode

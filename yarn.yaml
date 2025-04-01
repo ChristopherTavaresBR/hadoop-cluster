@@ -14,13 +14,33 @@ spec:
     spec:
       containers:
       - name: resourcemanager
-        image: apache/hadoop:latest
-        command: ["yarn", "resourcemanager"]
+        image: bde2020/hadoop-resourcemanager:2.0.0-hadoop3.2.1-java8
         env:
         - name: HADOOP_CONF_DIR
           value: /etc/hadoop
+        - name: SERVICE_PRECONDITION
+          value: "namenode:9000"
+        - name: CORE_CONF_fs_defaultFS
+          value: hdfs://namenode:9000
         ports:
         - containerPort: 8088
+          name: web
+        - containerPort: 8032
+          name: resource
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "250m"
+          limits:
+            memory: "1Gi"
+            cpu: "500m"
+        volumeMounts:
+        - name: config
+          mountPath: /etc/hadoop
+      volumes:
+      - name: config
+        configMap:
+          name: hadoop-config
 ---
 apiVersion: v1
 kind: Service
@@ -28,7 +48,11 @@ metadata:
   name: resourcemanager
 spec:
   ports:
-  - port: 8088
+  - name: web
+    port: 8088
     targetPort: 8088
+  - name: resource
+    port: 8032
+    targetPort: 8032
   selector:
     app: resourcemanager

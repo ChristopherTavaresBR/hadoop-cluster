@@ -1,13 +1,15 @@
+# Versão corrigida do hadoop-pv.yaml
 apiVersion: v1
 kind: PersistentVolume
 metadata:
   name: hadoop-pv
 spec:
   capacity:
-    storage: 10Gi
+    storage: 30Gi
   accessModes:
     - ReadWriteMany
   persistentVolumeReclaimPolicy: Retain
+  storageClassName: ""  # Explicitamente sem storageClass
   hostPath:
     path: "/mnt/hadoop-data"
 ---
@@ -18,6 +20,8 @@ metadata:
 spec:
   accessModes:
     - ReadWriteMany
+  storageClassName: ""  # Deve corresponder ao PV (vazio)
   resources:
     requests:
-      storage: 10Gi
+      storage: 30Gi
+  volumeName: hadoop-pv  # Referência explícita ao PV

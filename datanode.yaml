@@ -13,15 +13,40 @@ spec:
       labels:
         app: datanode
     spec:
+      initContainers:
+      - name: init-datanode-dir
+        image: busybox
+        command:
+        - "/bin/sh"
+        - "-c"
+        - "mkdir -p /mnt/hadoop-data/datanode && chmod 755 /mnt/hadoop-data/datanode"
+        volumeMounts:
+        - name: data
+          mountPath: /mnt/hadoop-data
       containers:
       - name: datanode
-        image: apache/hadoop:latest
-        command: ["hdfs", "datanode"]
+        image: bde2020/hadoop-datanode:2.0.0-hadoop3.2.1-java8
         env:
         - name: HADOOP_CONF_DIR
           value: /etc/hadoop
+        - name: SERVICE_PRECONDITION
+          value: "namenode:9000"
+        - name: CORE_CONF_fs_defaultFS
+          value: hdfs://namenode:9000
+        - name: HDFS_CONF_dfs_replication
+          value: "2"
         ports:
         - containerPort: 9864
+          name: web
+        - containerPort: 9866
+          name: data
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "250m"
+          limits:
+            memory: "1Gi"
+            cpu: "500m"
         volumeMounts:
         - name: config
           mountPath: /etc/hadoop
@@ -41,7 +66,11 @@ metadata:
   name: datanode
 spec:
   ports:
-  - port: 9864
+  - name: web
+    port: 9864
     targetPort: 9864
+  - name: data
+    port: 9866
+    targetPort: 9866
   selector:
     app: datanode
