@@ -18,7 +18,7 @@ spec:
         fsGroup: 1000
       initContainers:
       - name: init-hdfs
-        image: apache/hadoop:3.3.6
+        image: my-hadoop-namenode:3.3.6
         command:
         - "/bin/bash"
         - "-c"
@@ -37,7 +37,7 @@ spec:
         - name: hadoop-data
           mountPath: /hadoop-data
       - name: init-config
-        image: apache/hadoop:3.3.6
+        image: my-hadoop-namenode:3.3.6
         command:
         - "/bin/bash"
         - "-c"
@@ -54,7 +54,7 @@ spec:
           mountPath: /writable-conf
       containers:
       - name: namenode
-        image: apache/hadoop:3.3.6
+        image: my-hadoop-namenode:3.3.6
         env:
         - name: HADOOP_CONF_DIR
           value: /writable-conf
@@ -86,7 +86,6 @@ spec:
           mountPath: /writable-conf
         - name: hadoop-data
           mountPath: /hadoop-data
-        command: ["/bin/bash", "-c", "echo $PATH; which namenode; cat /entrypoint.sh; /entrypoint.sh namenode"] # adiciona comandos para diagnosticar.
       volumes:
       - name: hadoop-config
         configMap:
