@@ -1,0 +1,85 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: namenode
+spec:
+  selector:
+    matchLabels:
+      app: namenode
+  replicas: 1
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app: namenode
+    spec:
+      securityContext:
+        fsGroup: 1000
+      initContainers:
+      - name: init-hdfs
+        image: hadoop-alpine:3.3.6
+        command:
+        - "/bin/bash"
+        - "-c"
+        - |
+          mkdir -p /hadoop-data/namenode
+          chown -R hadoop:hadoop /hadoop-data
+          if [ ! -f /hadoop-data/namenode/formatted ]; then
+            echo "Formatting namenode..."
+            hdfs namenode -format -force -nonInteractive 2>&1 | tee /hadoop-data/namenode/format.log
+            touch /hadoop-data/namenode/formatted
+          fi
+        volumeMounts:
+        - name: hadoop-data
+          mountPath: /hadoop-data
+      containers:
+      - name: namenode
+        image: hadoop-alpine:3.3.6
+        command: ["hdfs", "namenode"]
+        env:
+        - name: HADOOP_USER_NAME
+          value: root
+        - name: HDFS_NAMENODE_USER
+          value: "root"
+        - name: CORE_CONF_fs_defaultFS
+          value: hdfs://namenode:9000
+        - name: HDFS_CONF_dfs_replication
+          value: "2"
+        - name: HDFS_CONF_dfs_namenode_name_dir
+          value: /hadoop-data/namenode
+        ports:
+        - containerPort: 9000
+          name: rpc
+        - containerPort: 9870
+          name: webui
+        livenessProbe:
+          exec:
+            command:
+            - hdfs
+            - dfsadmin
+            - -safemode
+            - get
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          exec:
+            command:
+            - hdfs
+            - dfsadmin
+            - -safemode
+            - get
+          initialDelaySeconds: 15
+          periodSeconds: 5
+        volumeMounts:
+        - name: hadoop-data
+          mountPath: /hadoop-data
+        - name: hadoop-config
+          mountPath: /opt/hadoop/etc/hadoop
+      volumes:
+      - name: hadoop-config
+        configMap:
+          name: hadoop-config
+      - name: hadoop-data
+        persistentVolumeClaim:
+          claimName: hadoop-data-pvc

@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: hadoop-config
+data:
+  core-site.xml: |
+    
+  hdfs-site.xml: |
+    
+  yarn-site.xml: |
+    
