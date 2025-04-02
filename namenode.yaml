@@ -18,7 +18,7 @@ spec:
         fsGroup: 1000
       initContainers:
       - name: init-hdfs
-        image: my-hadoop-namenode:3.3.6
+        image: apache/hadoop:3.3.6
         command:
         - "/bin/bash"
         - "-c"
@@ -37,7 +37,7 @@ spec:
         - name: hadoop-data
           mountPath: /hadoop-data
       - name: init-config
-        image: my-hadoop-namenode:3.3.6
+        image: apache/hadoop:3.3.6
         command:
         - "/bin/bash"
         - "-c"
@@ -52,9 +52,11 @@ spec:
           readOnly: true
         - name: writable-conf
           mountPath: /writable-conf
+        securityContext:
+          runAsUser: 0 #
       containers:
       - name: namenode
-        image: my-hadoop-namenode:3.3.6
+        image: apache/hadoop:3.3.6
         env:
         - name: HADOOP_CONF_DIR
           value: /writable-conf
@@ -86,6 +88,7 @@ spec:
           mountPath: /writable-conf
         - name: hadoop-data
           mountPath: /hadoop-data
+        command: ["/opt/hadoop/sbin/namenode"]
       volumes:
       - name: hadoop-config
         configMap:
