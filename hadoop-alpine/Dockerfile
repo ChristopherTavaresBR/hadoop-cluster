@@ -40,7 +40,10 @@ USER hadoop
 # Imagem final
 FROM alpine:3.16
 
-RUN addgroup -S hadoop && adduser -S -G hadoop hadoop
+RUN addgroup -g 1000 hadoop && \
+    adduser -u 1000 -G hadoop -h /home/hadoop -D hadoop && \
+    mkdir -p /opt/hadoop/logs && \
+    chown -R hadoop:hadoop /opt/hadoop
 
 COPY --from=builder /opt/hadoop /opt/hadoop
 COPY --from=builder /hadoop-data /hadoop-data

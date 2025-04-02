@@ -20,20 +20,21 @@ spec:
       initContainers:
       - name: init-hdfs
         image: hadoop-alpine:3.3.6
+        securityContext:
+          runAsUser: 0  # Executa como root temporariamente
+          privileged: true
         command:
-        - "/bin/bash"
+        - "/bin/sh"
         - "-c"
         - |
+          # Configuração inicial
           mkdir -p /hadoop-data/namenode
           chown -R 1000:1000 /hadoop-data
           if [ ! -f /hadoop-data/namenode/formatted ]; then
             echo "Formatting namenode..."
-            hdfs namenode -format -force -nonInteractive
+            su-exec hadoop hdfs namenode -format -force -nonInteractive
             touch /hadoop-data/namenode/formatted
           fi
-        securityContext:
-          runAsUser: 0  # Executa como root temporariamente
-          privileged: true
         volumeMounts:
         - name: hadoop-data
           mountPath: /hadoop-data
@@ -41,15 +42,21 @@ spec:
       - name: namenode
         image: hadoop-alpine:3.3.6
         securityContext:
-          runAsUser: 1000  # Executa como usuário hadoop
-          runAsGroup: 1000
+          runAsUser: 1000  # UID do usuário hadoop
+          runAsGroup: 1000 # GID do grupo hadoop
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop: [ALL]
+          readOnlyRootFilesystem: true
+          seccompProfile:
+            type: RuntimeDefault
         command: 
-        - "/bin/bash"
+        - "/bin/sh"
         - "-c"
         - |
-          # Garante permissões antes de iniciar
+          # Verifica permissões antes de iniciar
           chown -R 1000:1000 /hadoop-data
-          exec hdfs namenode
+          exec su-exec hadoop hdfs namenode
         env:
         - name: HADOOP_USER_NAME
           value: hadoop
@@ -63,6 +70,8 @@ spec:
           value: "/hadoop-data/namenode"
         - name: HDFS_CONF_dfs_permissions_enabled
           value: "false"
+        - name: HADOOP_LOG_DIR
+          value: "/opt/hadoop/logs"
         ports:
         - containerPort: 9000
           name: rpc
@@ -71,7 +80,7 @@ spec:
         livenessProbe:
           exec:
             command:
-            - "/bin/bash"
+            - "/bin/sh"
             - "-c"
             - "hdfs dfsadmin -safemode get | grep -q 'Safe mode is OFF' || exit 1"
           initialDelaySeconds: 120
@@ -80,7 +89,7 @@ spec:
         readinessProbe:
           exec:
             command:
-            - "/bin/bash"
+            - "/bin/sh"
             - "-c"
             - "hdfs dfsadmin -report | grep -q 'Live datanodes' && hdfs dfsadmin -safemode get | grep -q 'Safe mode is OFF'"
           initialDelaySeconds: 30
@@ -98,16 +107,6 @@ spec:
           mountPath: /hadoop-data
         - name: hadoop-config
           mountPath: /opt/hadoop/etc/hadoop
-        securityContext:
-          runAsUser: 1000
-          runAsGroup: 1000
-          allowPrivilegeEscalation: false
-          capabilities:
-            drop:
-            - ALL
-          readOnlyRootFilesystem: true
-          seccompProfile:
-            type: RuntimeDefault
       volumes:
       - name: hadoop-config
         configMap:
@@ -115,8 +114,10 @@ spec:
           items:
           - key: core-site.xml
             path: core-site.xml
+            mode: 0644
           - key: hdfs-site.xml
             path: hdfs-site.xml
+            mode: 0644
       - name: hadoop-data
         persistentVolumeClaim:
           claimName: namenode-pvc
