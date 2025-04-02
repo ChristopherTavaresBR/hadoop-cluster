@@ -10,11 +10,14 @@ nodes:
   extraMounts:
   - hostPath: /mnt/hadoop-data
     containerPath: /mnt/hadoop-data
+    readOnly: false
 - role: worker
   extraMounts:
   - hostPath: /mnt/hadoop-data
     containerPath: /mnt/hadoop-data
+    readOnly: false
 - role: worker
   extraMounts:
   - hostPath: /mnt/hadoop-data
     containerPath: /mnt/hadoop-data
+    readOnly: false

@@ -7,74 +7,93 @@ spec:
   selector:
     matchLabels:
       app: namenode
+  strategy:
+    type: Recreate
   template:
     metadata:
       labels:
         app: namenode
     spec:
+      securityContext:
+        fsGroup: 1000
       initContainers:
       - name: init-hdfs
-        image: bde2020/hadoop-namenode:2.0.0-hadoop3.2.1-java8
+        image: apache/hadoop:3.3.6
         command:
         - "/bin/bash"
         - "-c"
         - |
-          mkdir -p /mnt/hadoop-data/namenode
-          chmod 777 /mnt/hadoop-data/namenode
-          if [ ! -f /mnt/hadoop-data/namenode/formatted ]; then
-            echo "Formatting namenode directory"
-            hdfs namenode -format -force
-            touch /mnt/hadoop-data/namenode/formatted
+          mkdir -p /hadoop-data/namenode
+          chown -R 1000:1000 /hadoop-data
+          if [ ! -f /hadoop-data/namenode/VERSION ]; then
+            echo "Formatting namenode..."
+            hdfs namenode -format -force -nonInteractive 2>&1 | tee /hadoop-data/namenode/format.log
+            touch /hadoop-data/namenode/formatted
           fi
         env:
-        - name: HADOOP_CONF_DIR
-          value: /etc/hadoop
-        - name: CORE_CONF_fs_defaultFS
-          value: hdfs://namenode:9000
-        - name: HDFS_CONF_dfs_replication
-          value: "2"
+        - name: HDFS_CONF_dfs_namenode_name_dir
+          value: /hadoop-data/namenode
         volumeMounts:
-        - name: config
+        - name: hadoop-data
+          mountPath: /hadoop-data
+      - name: init-config
+        image: apache/hadoop:3.3.6
+        command:
+        - "/bin/bash"
+        - "-c"
+        - |
+          mkdir -p /writable-conf
+          cp -r /etc/hadoop/* /writable-conf/
+          chmod -R 755 /writable-conf
+          sleep 5 # Adiciona um pequeno delay
+        volumeMounts:
+        - name: hadoop-config
           mountPath: /etc/hadoop
-        - name: data
-          mountPath: /mnt/hadoop-data
+          readOnly: true
+        - name: writable-conf
+          mountPath: /writable-conf
       containers:
       - name: namenode
-        image: bde2020/hadoop-namenode:2.0.0-hadoop3.2.1-java8
-        command:
-        - "/entrypoint.sh"  # Use o entrypoint padrão da imagem
+        image: apache/hadoop:3.3.6
         env:
-        - name: ENSURE_NAMENODE_DIR
-          value: "/mnt/hadoop-data/namenode"
         - name: HADOOP_CONF_DIR
-          value: /etc/hadoop
+          value: /writable-conf
+        - name: HDFS_NAMENODE_USER
+          value: "root"
         - name: CORE_CONF_fs_defaultFS
           value: hdfs://namenode:9000
         - name: HDFS_CONF_dfs_replication
           value: "2"
         - name: HDFS_CONF_dfs_namenode_name_dir
-          value: /mnt/hadoop-data/namenode
+          value: /hadoop-data/namenode
+        - name: HDFS_CONF_dfs_cluster_name
+          value: NeurallakeHDFS
         ports:
         - containerPort: 9000
           name: rpc
         - containerPort: 9870
           name: web
-        resources:
-          requests:
-            memory: "512Mi"
-            cpu: "250m"
-          limits:
-            memory: "1Gi"
-            cpu: "500m"
+        livenessProbe:
+          exec:
+            command:
+            - hdfs
+            - dfsadmin
+            - -report
+          initialDelaySeconds: 60
+          periodSeconds: 10
         volumeMounts:
-        - name: config
-          mountPath: /etc/hadoop
-        - name: data
-          mountPath: /mnt/hadoop-data
+        - name: writable-conf
+          mountPath: /writable-conf
+        - name: hadoop-data
+          mountPath: /hadoop-data
+        command: ["/bin/bash", "-c", "echo $PATH; which namenode; cat /entrypoint.sh; /entrypoint.sh namenode"] # adiciona comandos para diagnosticar.
       volumes:
-      - name: config
+      - name: hadoop-config
         configMap:
           name: hadoop-config
-      - name: data
-        persistentVolumeClaim:
-          claimName: hadoop-pvc
+      - name: writable-conf
+        emptyDir: {}
+      - name: hadoop-data
+        hostPath:
+          path: /mnt/hadoop-data
+          type: DirectoryOrCreate

@@ -8,6 +8,7 @@ data:
       <property>
         <name>fs.defaultFS</name>
         <value>hdfs://namenode:9000</value>
+         <final>true</final>
       </property>
       <property>
         <name>hadoop.tmp.dir</name>
@@ -22,15 +23,19 @@ data:
       </property>
       <property>
         <name>dfs.namenode.name.dir</name>
-        <value>file:///mnt/hadoop-data/namenode</value>
+        <value>/mnt/hadoop-data/namenode</value>
       </property>
       <property>
         <name>dfs.datanode.data.dir</name>
-        <value>file:///mnt/hadoop-data/datanode</value>
+        <value>/mnt/hadoop-data/datanode</value>
       </property>
       <property>
         <name>dfs.permissions.enabled</name>
         <value>false</value>
+      </property>
+      <property>
+        <name>dfs.cluster.name</name>
+        <value>NeurallakeHDFS</value>
       </property>
     </configuration>
   yarn-site.xml: |
